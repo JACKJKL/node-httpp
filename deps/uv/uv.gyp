@@ -29,6 +29,7 @@
         'include/uv-private',
         'src/',
         'src/UDT4/src/',
+        'src/nacl/',
       ],
       'direct_dependent_settings': {
         'include_dirs': [ 'include' ],
@@ -44,6 +45,7 @@
         'include/uv-private/ngx-queue.h',
         'include/uv-private/tree.h',
         'src/UDT4/src/udtc.h',
+        'src/nacl/tweetnacl.h',
         'src/cares.c',
         'src/fs-poll.c',
         'src/uv-common.c',
@@ -126,6 +128,7 @@
         'src/UDT4/src/queue.cpp',
         'src/UDT4/src/udtc.cpp',
         'src/UDT4/src/window.cpp',
+        'src/nacl/tweetnacl.c',
       ],
       'conditions': [
         [ 'OS=="win"', {
@@ -148,6 +151,7 @@
             'src/ares/ares_platform.c',
             'src/win/async.c',
             'src/win/core.c',
+            'src/win/device.c',
             'src/win/dl.c',
             'src/win/error.c',
             'src/win/fs.c',
@@ -206,6 +210,7 @@
             'include/uv-private/uv-unix.h',
             'src/unix/async.c',
             'src/unix/core.c',
+            'src/unix/device.c',
             'src/unix/dl.c',
             'src/unix/eio/ecb.h',
             'src/unix/eio/eio.c',
@@ -364,6 +369,7 @@
         'test/test-callback-order.c',
         'test/test-connection-fail.c',
         'test/test-cwd-and-chdir.c',
+        'test/test-device-tun-echo.c',
         'test/test-delayed-accept.c',
         'test/test-fail-always.c',
         'test/test-fs.c',
