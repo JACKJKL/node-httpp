@@ -26,6 +26,7 @@ https://github.com/InstantWebP2P/node-httpp/wiki/An-introduction-to-node-httpp
 * Extend client/central server style web service transparently
 * Easy to use API, reuse existing http/web and node.js technology
 * Support windows/linux/OSx, RaspberryPi, Android
+* Support windows/linux device io stream
 
 ### TODO
 
