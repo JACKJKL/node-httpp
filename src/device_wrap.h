@@ -1,3 +1,8 @@
+// Copyright tom zhou<iwebpp@gmail.com>, 2015.
+//
+// device_wrap.h, device stream binding
+//
+
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -19,33 +24,38 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 // USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+#ifndef DEVICE_WRAP_H_
+#define DEVICE_WRAP_H_
 
-NODE_EXT_LIST_START
-NODE_EXT_LIST_ITEM(node_buffer)
-NODE_EXT_LIST_ITEM(node_typed_array)
-#if HAVE_OPENSSL
-NODE_EXT_LIST_ITEM(node_crypto)
-#endif
-NODE_EXT_LIST_ITEM(node_evals)
-NODE_EXT_LIST_ITEM(node_fs)
-NODE_EXT_LIST_ITEM(node_http_parser)
-#ifdef __POSIX__
-NODE_EXT_LIST_ITEM(node_signal_watcher)
-#endif
-NODE_EXT_LIST_ITEM(node_os)
-NODE_EXT_LIST_ITEM(node_zlib)
+#include "handle_wrap.h"
+#include "stream_wrap.h"
 
-// libuv rewrite
-NODE_EXT_LIST_ITEM(node_timer_wrap)
-NODE_EXT_LIST_ITEM(node_tcp_wrap)
-NODE_EXT_LIST_ITEM(node_udt_wrap)
-NODE_EXT_LIST_ITEM(node_udp_wrap)
-NODE_EXT_LIST_ITEM(node_pipe_wrap)
-NODE_EXT_LIST_ITEM(node_device_wrap)
-NODE_EXT_LIST_ITEM(node_cares_wrap)
-NODE_EXT_LIST_ITEM(node_tty_wrap)
-NODE_EXT_LIST_ITEM(node_process_wrap)
-NODE_EXT_LIST_ITEM(node_fs_event_wrap)
+namespace node {
 
-NODE_EXT_LIST_END
+using v8::Object;
+using v8::Handle;
+using v8::Local;
+using v8::Value;
+using v8::Arguments;
 
+
+class DEVICEWrap : StreamWrap {
+ public:
+  static void Initialize(Handle<Object> target);
+  static DEVICEWrap* Unwrap(Local<Object> obj);
+
+  uv_device_t* UVHandle();
+
+ private:
+  DEVICEWrap(v8::Handle<v8::Object> object);
+  ~DEVICEWrap();
+
+  static Handle<Value> New(const Arguments& args);
+  static Handle<Value> SetIOCtl(const Arguments& args);
+
+  uv_device_t handle_;
+};
+
+} // namespace node
+
+#endif // DEVICE_WRAP_H_
