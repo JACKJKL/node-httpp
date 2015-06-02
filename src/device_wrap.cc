@@ -80,6 +80,8 @@ void DEVICEWrap::Initialize(Handle<Object> target) {
 
   NODE_SET_PROTOTYPE_METHOD(t, "setIOCtl", SetIOCtl);
 
+  // tuntap specific
+  NODE_SET_PROTOTYPE_METHOD(t, "setTunName", SetTunName);
 
   deviceConstructor = Persistent<Function>::New(t->GetFunction());
 
@@ -115,6 +117,37 @@ Handle<Value> DEVICEWrap::SetIOCtl(const Arguments& args) {
   uv_ioargs_t* ctl = NULL;
 
   int r = uv_device_ioctl(&wrap->handle_, cmd, ctl);
+
+  if (r) {
+    SetErrno(uv_last_error(uv_default_loop()));
+  }
+
+  return scope.Close(Integer::New(r));
+}
+
+
+Handle<Value> DEVICEWrap::SetTunName(const Arguments& args) {
+  HandleScope scope;
+
+  UNWRAP(DEVICEWrap)
+
+  if (!args[0]->IsString()) return TYPE_ERROR("tun interface name must be a string");
+  node::Utf8Value intf_name(args[0]);
+
+  int r = 0;
+
+#ifdef __linux__
+  struct ifreq ifr;
+  uv_ioargs_t args = {0};
+  int flags = IFF_TUN|IFF_NO_PI;
+  args.arg = &ifr;
+
+  memset(&ifr, 0, sizeof(ifr));
+  ifr.ifr_flags = flags;
+  strncpy(ifr.ifr_name, *intf_name, IFNAMSIZ);
+
+  r = uv_device_ioctl(&wrap->handle_, TUNSETIFF, &args);
+#endif
 
   if (r) {
     SetErrno(uv_last_error(uv_default_loop()));

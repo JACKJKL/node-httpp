@@ -57,6 +57,10 @@ class DEVICEWrap : StreamWrap {
   static Handle<Value> SetIOCtl(const Arguments& args);
 
   uv_device_t handle_;
+
+  // tuntap specific ioctl
+  // set tun interface name
+  static Handle<Value> SetTunName(const Arguments& args);
 };
 
 } // namespace node
