@@ -50,7 +50,7 @@ class DEVICEWrap : StreamWrap {
   uv_device_t* UVHandle();
 
  private:
-  DEVICEWrap(v8::Handle<v8::Object> object);
+  DEVICEWrap(Handle<Object> object, const char* path, int flags);
   ~DEVICEWrap();
 
   static Handle<Value> New(const Arguments& args);

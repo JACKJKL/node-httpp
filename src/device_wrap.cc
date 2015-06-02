@@ -27,6 +27,7 @@
 #include "node.h"
 #include "node_buffer.h"
 #include "req_wrap.h"
+#include "util.h"
 #include "handle_wrap.h"
 #include "stream_wrap.h"
 #include "device_wrap.h"
@@ -47,6 +48,9 @@ using v8::Context;
 using v8::Arguments;
 using v8::Integer;
 using v8::Undefined;
+
+#define TYPE_ERROR(msg) \
+    ThrowException(Exception::TypeError(String::New(msg)));
 
 Persistent<Function> deviceConstructor;
 
@@ -104,10 +108,10 @@ Handle<Value> DEVICEWrap::SetIOCtl(const Arguments& args) {
 
   UNWRAP(DEVICEWrap)
 
-  int cmd = args[1]->Int32Value();
-  uv_ioargs_t* args = NULL;
+  int cmd = args[0]->Int32Value();
+  uv_ioargs_t* ctl = NULL;
 
-  int r = uv_device_ioctl(&wrap->handle_, cmd, args);
+  int r = uv_device_ioctl(&wrap->handle_, cmd, ctl);
 
   if (r) {
     SetErrno(uv_last_error(uv_default_loop()));
