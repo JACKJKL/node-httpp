@@ -32,6 +32,7 @@
 #include "stream_wrap.h"
 #include "device_wrap.h"
 
+
 namespace node {
 
 using v8::Object;
@@ -48,6 +49,8 @@ using v8::Context;
 using v8::Arguments;
 using v8::Integer;
 using v8::Undefined;
+using v8::Exception;
+using v8::ThrowException;
 
 #define TYPE_ERROR(msg) \
     ThrowException(Exception::TypeError(String::New(msg)));
@@ -145,6 +148,10 @@ Handle<Value> DEVICEWrap::New(const Arguments& args) {
 DEVICEWrap::DEVICEWrap(Handle<Object> object, const char* path, int flags)
     : StreamWrap(object, (uv_stream_t*)&handle_) {
   uv_device_init(uv_default_loop(), &handle_, path, flags);
+}
+
+DEVICEWrap::~DEVICEWrap() {
+  assert(object_.IsEmpty());
 }
 
 }  // namespace node
