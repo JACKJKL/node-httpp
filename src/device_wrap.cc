@@ -32,6 +32,19 @@
 #include "stream_wrap.h"
 #include "device_wrap.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#ifdef __linux__
+#include <sys/ioctl.h>
+#include <linux/if.h>
+#include <linux/if_tun.h>
+#endif
+#include <fcntl.h>
+#include <errno.h>
+#include <stdarg.h> 
+#include <assert.h>
+
 
 namespace node {
 
@@ -138,15 +151,15 @@ Handle<Value> DEVICEWrap::SetTunName(const Arguments& args) {
 
 #ifdef __linux__
   struct ifreq ifr;
-  uv_ioargs_t args = {0};
+  uv_ioargs_t ctrl = {0};
   int flags = IFF_TUN|IFF_NO_PI;
-  args.arg = &ifr;
+  ctrl.arg = &ifr;
 
   memset(&ifr, 0, sizeof(ifr));
   ifr.ifr_flags = flags;
   strncpy(ifr.ifr_name, *intf_name, IFNAMSIZ);
 
-  r = uv_device_ioctl(&wrap->handle_, TUNSETIFF, &args);
+  r = uv_device_ioctl(&wrap->handle_, TUNSETIFF, &ctrl);
 #endif
 
   if (r) {

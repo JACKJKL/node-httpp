@@ -49,6 +49,7 @@
       'lib/tls.js',
       'lib/tty.js',
       'lib/device.js',
+      'lib/tuntap.js',
       'lib/url.js',
       'lib/util.js',
       'lib/vm.js',
