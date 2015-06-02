@@ -48,6 +48,7 @@ using v8::Arguments;
 using v8::Integer;
 using v8::Undefined;
 
+Persistent<Function> deviceConstructor;
 
 void DEVICEWrap::Initialize(Handle<Object> target) {
   StreamWrap::Initialize(target);
@@ -72,7 +73,10 @@ void DEVICEWrap::Initialize(Handle<Object> target) {
 
   NODE_SET_PROTOTYPE_METHOD(t, "setIOCtl", SetIOCtl);
 
-  target->Set(String::NewSymbol("DEVICE"), t->GetFunction());
+
+  deviceConstructor = Persistent<Function>::New(t->GetFunction());
+
+  target->Set(String::NewSymbol("DEVICE"), deviceConstructor);
 }
 
 
@@ -80,6 +84,13 @@ DEVICEWrap* DEVICEWrap::Unwrap(Local<Object> obj) {
   assert(!obj.IsEmpty());
   assert(obj->InternalFieldCount() > 0);
   return static_cast<DEVICEWrap*>(obj->GetPointerFromInternalField(0));
+}
+
+
+Local<Object> DEVICEWrap::Instantiate() {
+  HandleScope scope;
+  assert(!deviceConstructor.IsEmpty());
+  return scope.Close(deviceConstructor->NewInstance());
 }
 
 

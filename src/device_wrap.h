@@ -42,6 +42,9 @@ using v8::Arguments;
 class DEVICEWrap : StreamWrap {
  public:
   static void Initialize(Handle<Object> target);
+
+  static v8::Local<v8::Object> Instantiate();
+
   static DEVICEWrap* Unwrap(Local<Object> obj);
 
   uv_device_t* UVHandle();
