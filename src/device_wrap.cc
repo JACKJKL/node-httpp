@@ -95,6 +95,7 @@ void DEVICEWrap::Initialize(Handle<Object> target) {
 
   // tuntap specific
   NODE_SET_PROTOTYPE_METHOD(t, "setTunName", SetTunName);
+  NODE_SET_PROTOTYPE_METHOD(t, "setTapName", SetTapName);
 
   deviceConstructor = Persistent<Function>::New(t->GetFunction());
 
@@ -153,6 +154,37 @@ Handle<Value> DEVICEWrap::SetTunName(const Arguments& args) {
   struct ifreq ifr;
   uv_ioargs_t ctrl = {0};
   int flags = IFF_TUN|IFF_NO_PI;
+  ctrl.arg = &ifr;
+
+  memset(&ifr, 0, sizeof(ifr));
+  ifr.ifr_flags = flags;
+  strncpy(ifr.ifr_name, *intf_name, IFNAMSIZ);
+
+  r = uv_device_ioctl(&wrap->handle_, TUNSETIFF, &ctrl);
+#endif
+
+  if (r) {
+    SetErrno(uv_last_error(uv_default_loop()));
+  }
+
+  return scope.Close(Integer::New(r));
+}
+
+
+Handle<Value> DEVICEWrap::SetTapName(const Arguments& args) {
+  HandleScope scope;
+
+  UNWRAP(DEVICEWrap)
+
+  if (!args[0]->IsString()) return TYPE_ERROR("tap interface name must be a string");
+  node::Utf8Value intf_name(args[0]);
+
+  int r = 0;
+
+#ifdef __linux__
+  struct ifreq ifr;
+  uv_ioargs_t ctrl = {0};
+  int flags = IFF_TAP|IFF_NO_PI;
   ctrl.arg = &ifr;
 
   memset(&ifr, 0, sizeof(ifr));

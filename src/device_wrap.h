@@ -61,6 +61,8 @@ class DEVICEWrap : StreamWrap {
   // tuntap specific ioctl
   // set tun interface name
   static Handle<Value> SetTunName(const Arguments& args);
+  // set tap interface name
+  static Handle<Value> SetTapName(const Arguments& args);
 };
 
 } // namespace node
