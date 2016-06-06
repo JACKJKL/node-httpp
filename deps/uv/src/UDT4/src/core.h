@@ -384,10 +384,8 @@ private: // synchronization: mutexes and conditions
    pthread_cond_t m_RecvDataCond;               // used to block "recv" when there is no data
    pthread_mutex_t m_RecvDataLock;              // lock associated to m_RecvDataCond
 
-   ///pthread_mutex_t m_SendLock;                  // used to synchronize "send" call
-   ///pthread_mutex_t m_RecvLock;                  // used to synchronize "recv" call
-
-   pthread_mutex_t m_SerialLock;                // used to keep recv/send/close/checkTimer call serially
+   pthread_mutex_t m_SendLock;                  // used to synchronize "send" call
+   pthread_mutex_t m_RecvLock;                  // used to synchronize "recv" call
 
    void initSynch();
    void destroySynch();

@@ -455,11 +455,8 @@ void CUDT::setOpt(UDTOpt optName, const void* optval, int optlen)
       throw CUDTException(2, 1, 0);
 
    CGuard cg(m_ConnectionLock);
-
-   // take serial lock
-   CGuard serialguard(m_SerialLock);
-   ///CGuard sendguard(m_SendLock);
-   ///CGuard recvguard(m_RecvLock);
+   CGuard sendguard(m_SendLock);
+   CGuard recvguard(m_RecvLock);
 
    switch (optName)
    {
@@ -1378,14 +1375,14 @@ void CUDT::close()
    ///CGuard serialguard(m_SerialLock);
    ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
 
-#ifndef EVPIPE_OSFD
+///#ifndef EVPIPE_OSFD
    // waiting all send and recv calls to stop
    ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
    CGuard sendguard(m_SendLock);
    ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
    CGuard recvguard(m_RecvLock);
    ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
-#endif
+///#endif
 
    // CLOSED.
    m_bOpened = false;
@@ -1405,11 +1402,7 @@ int CUDT::send(const char* data, int len)
    if (len <= 0)
       return 0;
 
-   ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
-   // take serial lock
-   CGuard serialguard(m_SerialLock);
-   ///CGuard sendguard(m_SendLock);
-   ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
+   CGuard sendguard(m_SendLock);
 
    if (m_pSndBuffer->getCurrBufSize() == 0)
    {
@@ -1522,12 +1515,7 @@ int CUDT::recv(char* data, int len)
    if (len <= 0)
       return 0;
 
-   ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
-   // take serial lock
-   CGuard serialguard(m_SerialLock);
-   ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
-
-   ///CGuard recvguard(m_RecvLock);
+   CGuard recvguard(m_RecvLock);
 
    if (0 == m_pRcvBuffer->getRcvDataSize())
    {
@@ -1617,9 +1605,7 @@ int CUDT::sendmsg(const char* data, int len, int msttl, bool inorder)
    if (len > m_iSndBufSize * m_iPayloadSize)
       throw CUDTException(5, 12, 0);
 
-   // take serial lock
-   CGuard serialguard(m_SerialLock);
-   ///CGuard sendguard(m_SendLock);
+   CGuard sendguard(m_SendLock);
 
    if (m_pSndBuffer->getCurrBufSize() == 0)
    {
@@ -1721,9 +1707,7 @@ int CUDT::recvmsg(char* data, int len)
    if (len <= 0)
       return 0;
 
-   // take serial lock
-   CGuard serialguard(m_SerialLock);
-   ///CGuard recvguard(m_RecvLock);
+   CGuard recvguard(m_RecvLock);
 
    if (m_bBroken || m_bClosing)
    {
@@ -1823,9 +1807,7 @@ int64_t CUDT::sendfile(fstream& ifs, int64_t& offset, int64_t size, int block)
    if (size <= 0)
       return 0;
 
-   // take serial lock
-   CGuard serialguard(m_SerialLock);
-   ///CGuard sendguard(m_SendLock);
+   CGuard sendguard(m_SendLock);
 
    if (m_pSndBuffer->getCurrBufSize() == 0)
    {
@@ -1922,9 +1904,7 @@ int64_t CUDT::recvfile(fstream& ofs, int64_t& offset, int64_t size, int block)
    if (size <= 0)
       return 0;
 
-   // take serial lock
-   CGuard serialguard(m_SerialLock);
-   ///CGuard recvguard(m_RecvLock);
+   CGuard recvguard(m_RecvLock);
 
    int64_t torecv = size;
    int unitsize = block;
@@ -2074,52 +2054,24 @@ void CUDT::CCUpdate()
 void CUDT::initSynch()
 {
    #ifndef WIN32
-	  pthread_mutex_init(&m_SerialLock, NULL);
-
       pthread_mutex_init(&m_SendBlockLock, NULL);
       pthread_cond_init(&m_SendBlockCond, NULL);
       pthread_mutex_init(&m_RecvDataLock, NULL);
       pthread_cond_init(&m_RecvDataCond, NULL);
-      ///pthread_mutex_init(&m_SendLock, NULL);
-      ///pthread_mutex_init(&m_RecvLock, NULL);
+      pthread_mutex_init(&m_SendLock, NULL);
+      pthread_mutex_init(&m_RecvLock, NULL);
       pthread_mutex_init(&m_AckLock, NULL);
       pthread_mutex_init(&m_ConnectionLock, NULL);
    #else
-      m_SerialLock = CreateMutex(NULL, false, NULL);
-
       m_SendBlockLock = CreateMutex(NULL, false, NULL);
       m_SendBlockCond = CreateEvent(NULL, false, false, NULL);
       m_RecvDataLock = CreateMutex(NULL, false, NULL);
       m_RecvDataCond = CreateEvent(NULL, false, false, NULL);
-      ///m_SendLock = CreateMutex(NULL, false, NULL);
-      ///m_RecvLock = CreateMutex(NULL, false, NULL);
+      m_SendLock = CreateMutex(NULL, false, NULL);
+      m_RecvLock = CreateMutex(NULL, false, NULL);
       m_AckLock = CreateMutex(NULL, false, NULL);
       m_ConnectionLock = CreateMutex(NULL, false, NULL);
    #endif
-
-      ///////////////////////////////////
-      // sanity checking on mutex
-      CGuard::enterCS(m_SerialLock);
-      CGuard::leaveCS(m_SerialLock);
-
-      CGuard::enterCS(m_SendBlockLock);
-      CGuard::leaveCS(m_SendBlockLock);
-
-      CGuard::enterCS(m_RecvDataLock);
-      CGuard::leaveCS(m_RecvDataLock);
-
-      ///CGuard::enterCS(m_SendLock);
-      ///CGuard::leaveCS(m_SendLock);
-
-      ///CGuard::enterCS(m_RecvLock);
-      ///CGuard::leaveCS(m_RecvLock);
-
-      CGuard::enterCS(m_AckLock);
-      CGuard::leaveCS(m_AckLock);
-
-      CGuard::enterCS(m_ConnectionLock);
-      CGuard::leaveCS(m_ConnectionLock);
-      ///////////////////////////////////
 }
 
 void CUDT::destroySynch()
@@ -2129,23 +2081,19 @@ void CUDT::destroySynch()
       pthread_cond_destroy(&m_SendBlockCond);
       pthread_mutex_destroy(&m_RecvDataLock);
       pthread_cond_destroy(&m_RecvDataCond);
-      ///pthread_mutex_destroy(&m_SendLock);
-      ///pthread_mutex_destroy(&m_RecvLock);
+      pthread_mutex_destroy(&m_SendLock);
+      pthread_mutex_destroy(&m_RecvLock);
       pthread_mutex_destroy(&m_AckLock);
       pthread_mutex_destroy(&m_ConnectionLock);
-
-      pthread_mutex_destroy(&m_SerialLock);
    #else
       CloseHandle(m_SendBlockLock);
       CloseHandle(m_SendBlockCond);
       CloseHandle(m_RecvDataLock);
       CloseHandle(m_RecvDataCond);
-      ///CloseHandle(m_SendLock);
-      ///CloseHandle(m_RecvLock);
+      CloseHandle(m_SendLock);
+      CloseHandle(m_RecvLock);
       CloseHandle(m_AckLock);
       CloseHandle(m_ConnectionLock);
-
-      CloseHandle(m_SerialLock);
    #endif
 }
 
@@ -2157,31 +2105,22 @@ void CUDT::releaseSynch()
       pthread_cond_signal(&m_SendBlockCond);
       pthread_mutex_unlock(&m_SendBlockLock);
 
-      ///pthread_mutex_lock(&m_SendLock);
-      ///pthread_mutex_unlock(&m_SendLock);
+      pthread_mutex_lock(&m_SendLock);
+      pthread_mutex_unlock(&m_SendLock);
 
       pthread_mutex_lock(&m_RecvDataLock);
       pthread_cond_signal(&m_RecvDataCond);
       pthread_mutex_unlock(&m_RecvDataLock);
 
-      ///pthread_mutex_lock(&m_RecvLock);
-      ///pthread_mutex_unlock(&m_RecvLock);
-
-      pthread_mutex_lock(&m_SerialLock);
-      pthread_mutex_unlock(&m_SerialLock);
+      pthread_mutex_lock(&m_RecvLock);
+      pthread_mutex_unlock(&m_RecvLock);
    #else
       SetEvent(m_SendBlockCond);
-
-      ///WaitForSingleObject(m_SendLock, INFINITE);
-      ///ReleaseMutex(m_SendLock);
-
+      WaitForSingleObject(m_SendLock, INFINITE);
+      ReleaseMutex(m_SendLock);
       SetEvent(m_RecvDataCond);
-
-      ///WaitForSingleObject(m_RecvLock, INFINITE);
-      ///ReleaseMutex(m_RecvLock);
-
-      WaitForSingleObject(m_SerialLock, INFINITE);
-      ReleaseMutex(m_SerialLock);
+      WaitForSingleObject(m_RecvLock, INFINITE);
+      ReleaseMutex(m_RecvLock);
    #endif
 }
 

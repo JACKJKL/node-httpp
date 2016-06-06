@@ -75,24 +75,15 @@ m_AcceptLock(),
 m_uiBackLog(0),
 m_iMuxID(-1)
 {
-#ifndef WIN32
-	pthread_mutex_init(&m_AcceptLock, NULL);
-	pthread_cond_init(&m_AcceptCond, NULL);
-	pthread_mutex_init(&m_ControlLock, NULL);
-#else
-	m_AcceptLock = CreateMutex(NULL, false, NULL);
-	m_AcceptCond = CreateEvent(NULL, false, false, NULL);
-	m_ControlLock = CreateMutex(NULL, false, NULL);
-#endif
-
-	///////////////////////////////////
-	// sanity checking on mutex
-	CGuard::enterCS(m_AcceptLock);
-	CGuard::leaveCS(m_AcceptLock);
-
-	CGuard::enterCS(m_ControlLock);
-	CGuard::leaveCS(m_ControlLock);
-	///////////////////////////////////
+   #ifndef WIN32
+      pthread_mutex_init(&m_AcceptLock, NULL);
+      pthread_cond_init(&m_AcceptCond, NULL);
+      pthread_mutex_init(&m_ControlLock, NULL);
+   #else
+      m_AcceptLock = CreateMutex(NULL, false, NULL);
+      m_AcceptCond = CreateEvent(NULL, false, false, NULL);
+      m_ControlLock = CreateMutex(NULL, false, NULL);
+   #endif
 }
 
 CUDTSocket::~CUDTSocket()
@@ -124,6 +115,8 @@ CUDTSocket::~CUDTSocket()
 	CloseHandle(m_ControlLock);
 #endif
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 CUDTUnited::CUDTUnited():
 m_Sockets(),
@@ -158,21 +151,6 @@ m_ClosedSockets()
       m_IDLock = CreateMutex(NULL, false, NULL);
       m_InitLock = CreateMutex(NULL, false, NULL);
    #endif
-
-      ///////////////////////////////////
-      // sanity checking on mutex
-      CGuard::enterCS(m_ControlLock);
-      CGuard::leaveCS(m_ControlLock);
-
-      CGuard::enterCS(m_MultiplexerLock);
-      CGuard::leaveCS(m_MultiplexerLock);
-
-      CGuard::enterCS(m_IDLock);
-      CGuard::leaveCS(m_IDLock);
-
-      CGuard::enterCS(m_InitLock);
-      CGuard::leaveCS(m_InitLock);
-      ///////////////////////////////////
 
    #ifndef WIN32
       pthread_key_create(&m_TLSError, TLSDestroy);
@@ -243,12 +221,6 @@ int CUDTUnited::startup()
       // adjust thread priority
       ///assert(SetThreadPriority(m_GCThread, THREAD_PRIORITY_ABOVE_NORMAL));
    #endif
-
-      ///////////////////////////////////
-      // sanity checking on mutex
-      CGuard::enterCS(m_GCStopLock);
-      CGuard::leaveCS(m_GCStopLock);
-      ///////////////////////////////////
 
       m_bGCStatus = true;
 
@@ -332,9 +304,7 @@ UDTSOCKET CUDTUnited::newSocket(int af, int type)
    ns->m_pUDT->m_pCache = m_pCache;
 
    // protect the m_Sockets structure.
-   ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
-   ///CGuard::enterCS(m_ControlLock);
-   ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
+   CGuard::enterCS(m_ControlLock);
    try
    {
       m_Sockets[ns->m_SocketID] = ns;
@@ -342,19 +312,16 @@ UDTSOCKET CUDTUnited::newSocket(int af, int type)
    catch (...)
    {
       //failure and rollback
-      ///CGuard::leaveCS(m_ControlLock);
+      CGuard::leaveCS(m_ControlLock);
       delete ns;
       ns = NULL;
    }
-   ///CGuard::leaveCS(m_ControlLock);
-   ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
+   CGuard::leaveCS(m_ControlLock);
 
-   if (NULL == ns) {
-	   throw CUDTException(3, 2, 0);
-	   return CUDT::INVALID_SOCK;
-   } else {
-	   return ns->m_SocketID;
-   }
+   if (NULL == ns)
+      throw CUDTException(3, 2, 0);
+
+   return ns->m_SocketID;
 }
 
 int CUDTUnited::newConnection(const UDTSOCKET listen, const sockaddr* peer, CHandShake* hs)
@@ -458,9 +425,7 @@ int CUDTUnited::newConnection(const UDTSOCKET listen, const sockaddr* peer, CHan
    CIPAddress::pton(ns->m_pSelfAddr, ns->m_pUDT->m_piSelfIP, ns->m_iIPversion);
 
    // protect the m_Sockets structure.
-   ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
-   ///CGuard::enterCS(m_ControlLock);
-   ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
+   CGuard::enterCS(m_ControlLock);
    try
    {
       m_Sockets[ns->m_SocketID] = ns;
@@ -470,8 +435,7 @@ int CUDTUnited::newConnection(const UDTSOCKET listen, const sockaddr* peer, CHan
    {
       error = 2;
    }
-   ///CGuard::leaveCS(m_ControlLock);
-   ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
+   CGuard::leaveCS(m_ControlLock);
 
    CGuard::enterCS(ls->m_AcceptLock);
    try
@@ -519,29 +483,20 @@ ERR_ROLLBACK:
 CUDT* CUDTUnited::lookup(const UDTSOCKET u)
 {
    // protects the m_Sockets structure
-   ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
-   ///CGuard cg(m_ControlLock);
-   ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
+   CGuard cg(m_ControlLock);
 
    map<UDTSOCKET, CUDTSocket*>::iterator i = m_Sockets.find(u);
 
-   if (i == m_Sockets.end()) {
-	   throw CUDTException(5, 4, 0);
-	   return NULL;
-   } else if (i->second->m_Status == CLOSED) {
-	   throw CUDTException(5, 4, 0);
-	   return i->second->m_pUDT;
-   } else {
-	   return i->second->m_pUDT;
-   }
+   if ((i == m_Sockets.end()) || (i->second->m_Status == CLOSED))
+      throw CUDTException(5, 4, 0);
+
+   return i->second->m_pUDT;
 }
 
 UDTSTATUS CUDTUnited::getStatus(const UDTSOCKET u)
 {
    // protects the m_Sockets structure
-   ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
-   ///CGuard cg(m_ControlLock);
-   ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
+   CGuard cg(m_ControlLock);
 
    map<UDTSOCKET, CUDTSocket*>::iterator i = m_Sockets.find(u);
 
@@ -562,13 +517,10 @@ UDTSTATUS CUDTUnited::getStatus(const UDTSOCKET u)
 int CUDTUnited::bind(const UDTSOCKET u, const sockaddr* name, int namelen)
 {
    CUDTSocket* s = locate(u);
-   if (NULL == s) {
-	   throw CUDTException(5, 4, 0);
-	   return 0;
-   }
-   ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
+   if (NULL == s)
+      throw CUDTException(5, 4, 0);
+
    CGuard cg(s->m_ControlLock);
-   ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
 
    // cannot bind a socket more than once
    if (INIT != s->m_Status)
@@ -599,14 +551,10 @@ int CUDTUnited::bind(const UDTSOCKET u, const sockaddr* name, int namelen)
 int CUDTUnited::bind(UDTSOCKET u, UDPSOCKET udpsock)
 {
    CUDTSocket* s = locate(u);
-   if (NULL == s) {
-	   throw CUDTException(5, 4, 0);
-	   return 0;
-   }
+   if (NULL == s)
+      throw CUDTException(5, 4, 0);
 
-   ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
    CGuard cg(s->m_ControlLock);
-   ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
 
    // cannot bind a socket more than once
    if (INIT != s->m_Status)
@@ -644,13 +592,10 @@ int CUDTUnited::bind(UDTSOCKET u, UDPSOCKET udpsock)
 int CUDTUnited::listen(const UDTSOCKET u, int backlog)
 {
    CUDTSocket* s = locate(u);
-   if (NULL == s) {
+   if (NULL == s)
       throw CUDTException(5, 4, 0);
-      return 0;
-   }
-   ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
+
    CGuard cg(s->m_ControlLock);
-   ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
 
    // do nothing if the socket is already listening
    if (LISTENING == s->m_Status)
@@ -695,10 +640,8 @@ UDTSOCKET CUDTUnited::accept(const UDTSOCKET listen, sockaddr* addr, int* addrle
 
    CUDTSocket* ls = locate(listen);
 
-   if (ls == NULL) {
+   if (ls == NULL)
       throw CUDTException(5, 4, 0);
-      return CUDT::INVALID_SOCK;
-   }
 
    // the "listen" socket must be in LISTENING status
    if (LISTENING != ls->m_Status)
@@ -711,7 +654,7 @@ UDTSOCKET CUDTUnited::accept(const UDTSOCKET listen, sockaddr* addr, int* addrle
    UDTSOCKET u = CUDT::INVALID_SOCK;
    bool accepted = false;
 
-   // !!only one connection can be set up each time!!
+   // !!only one conection can be set up each time!!
    #ifndef WIN32
       while (!accepted)
       {
@@ -882,10 +825,9 @@ int CUDTUnited::punchhole(const UDTSOCKET u, const sockaddr* name, int namelen, 
 int CUDTUnited::connect(const UDTSOCKET u, const sockaddr* name, int namelen)
 {
    CUDTSocket* s = locate(u);
-   if (NULL == s) {
+   if (NULL == s)
       throw CUDTException(5, 4, 0);
-      return 0;
-   }
+
    ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
    CGuard cg(s->m_ControlLock);
    ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
@@ -950,10 +892,8 @@ int CUDTUnited::connect(const UDTSOCKET u, const sockaddr* name, int namelen)
 void CUDTUnited::connect_complete(const UDTSOCKET u)
 {
    CUDTSocket* s = locate(u);
-   if (NULL == s) {
+   if (NULL == s)
       throw CUDTException(5, 4, 0);
-      return;
-   }
 
    // copy address information of local node
    // the local port must be correctly assigned BEFORE CUDT::connect(),
@@ -969,10 +909,8 @@ int CUDTUnited::close(const UDTSOCKET u)
    ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
    CUDTSocket* s = locate(u);
    ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
-   if (NULL == s) {
+   if (NULL == s)
       throw CUDTException(5, 4, 0);
-      return 0;
-   }
 
 #ifdef EVPIPE_OSFD
    // trigger event pipe to notify closing
@@ -1020,7 +958,7 @@ int CUDTUnited::close(const UDTSOCKET u)
 
    s->m_Status = CLOSED;
 
-   // a socket will not be immediately removed when it is closed
+   // a socket will not be immediated removed when it is closed
    // in order to prevent other methods from accessing invalid address
    // a timer is started and the socket will be removed after approximately 1 second
    s->m_TimeStamp = CTimer::getTime();
@@ -1047,10 +985,8 @@ int CUDTUnited::getpeername(const UDTSOCKET u, sockaddr* name, int* namelen)
 
    CUDTSocket* s = locate(u);
 
-   if (NULL == s) {
+   if (NULL == s)
       throw CUDTException(5, 4, 0);
-      return 0;
-   }
 
    if (!s->m_pUDT->m_bConnected || s->m_pUDT->m_bBroken)
       throw CUDTException(2, 2, 0);
@@ -1070,10 +1006,8 @@ int CUDTUnited::getsockname(const UDTSOCKET u, sockaddr* name, int* namelen)
 {
    CUDTSocket* s = locate(u);
 
-   if (NULL == s) {
+   if (NULL == s)
       throw CUDTException(5, 4, 0);
-      return 0;
-   }
 
    if (s->m_pUDT->m_bBroken)
       throw CUDTException(5, 4, 0);
@@ -1329,7 +1263,7 @@ int CUDTUnited::epoll_release(const int eid)
 CUDTSocket* CUDTUnited::locate(const UDTSOCKET u)
 {
    ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
-   ///CGuard cg(m_ControlLock);
+   CGuard cg(m_ControlLock);
    ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
 
    map<UDTSOCKET, CUDTSocket*>::iterator i = m_Sockets.find(u);
@@ -1343,7 +1277,7 @@ CUDTSocket* CUDTUnited::locate(const UDTSOCKET u)
 CUDTSocket* CUDTUnited::locate(const sockaddr* peer, const UDTSOCKET id, int32_t isn)
 {
    ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
-   ///CGuard cg(m_ControlLock);
+   CGuard cg(m_ControlLock);
    ///printf("%s.%s.%d\n", __FILE__, __FUNCTION__, __LINE__);
 
    map<int64_t, set<UDTSOCKET> >::iterator i = m_PeerRec.find((id << 30) + isn);
@@ -2537,7 +2471,7 @@ int64_t sendfile2(UDTSOCKET u, const char* path, int64_t* offset, int64_t size, 
 int64_t recvfile2(UDTSOCKET u, const char* path, int64_t* offset, int64_t size, int block)
 {
    fstream ofs(path, ios::binary | ios::out);
-   int64_t ret = CUDT::sendfile(u, ofs, *offset, size, block);
+   int64_t ret = CUDT::recvfile(u, ofs, *offset, size, block);
    ofs.close();
    return ret;
 }
