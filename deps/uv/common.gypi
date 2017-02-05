@@ -132,10 +132,14 @@
         'cflags': [ '-Wall' ],
         'cflags_cc': [ '-frtti', '-fexceptions', '-DEVPIPE_OSFD' ],
         'conditions': [
-          [ 'host_arch != target_arch and target_arch=="ia32"', {
+          [ 'target_arch=="ia32"', {
             'cflags': [ '-m32' ],
             'ldflags': [ '-m32' ],
           }],
+          [ 'target_arch=="x64"', {
+            'cflags': [ '-m64' ],
+            'ldflags': [ '-m64' ],
+          }], 
           [ 'OS=="linux"', {
             'cflags': [ '-ansi', '-DLINUX' ],
           }],
