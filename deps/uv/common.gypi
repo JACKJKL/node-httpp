@@ -155,7 +155,7 @@
           }],
          
           ['target_arch=="ia32"', {'cflags': [ '-DIA32' ], 'ldflags': [ '-DIA32' ],}],
-          ['target_arch=="x64"', {'cflags': [ '-DX64' ], 'ldflags': [ '-DX64' ],}}
+          ['target_arch=="x64"', {'cflags': [ '-DX64' ], 'ldflags': [ '-DX64' ],}]
         ],
       }],
       ['OS=="mac"', {
