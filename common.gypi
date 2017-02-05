@@ -141,6 +141,15 @@
       },
     },
     'conditions': [
+      [ 'target_arch=="ia32"', {
+            'cflags': [ '-DIA32' ],
+            'ldflags': [ '-DIA32' ],
+      }],
+      [ 'target_arch=="x64"', {
+            'cflags': [ '-DX64' ],
+            'ldflags': [ '-DX64' ],
+      }],
+
       ['OS == "win"', {
         'msvs_cygwin_shell': 0, # prevent actions from trying to use cygwin
         'defines': [
