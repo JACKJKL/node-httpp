@@ -1,8 +1,8 @@
 {
   'variables': {
     'visibility%': 'hidden',         # V8's visibility setting
-    'target_arch%': 'ia32',          # set v8's target architecture
-    'host_arch%': 'ia32',            # set v8's host architecture
+    'target_arch%': 'x64',          # set v8's target architecture
+    'host_arch%': 'x64',            # set v8's host architecture
     'library%': 'static_library',    # allow override to 'shared_library' for DLL/.so builds
     'component%': 'static_library',  # NB. these names match with what V8 expects
     'msvs_multi_core_compile': '0',  # we do enable multicore compiles, but not using the V8 way
@@ -15,7 +15,7 @@
     'configurations': {
       'Debug': {
         'defines': [ 'DEBUG', '_DEBUG' ],
-        'cflags': [ '-g', '-O0' ],
+        'cflags': [ '-g', '-O0', '--std=c99' ],
         'msvs_settings': {
           'VCCLCompilerTool': {
             'target_conditions': [
@@ -49,7 +49,7 @@
       },
       'Release': {
         'defines': [ 'NDEBUG' ],
-        'cflags': [ '-O3', '-fomit-frame-pointer', '-fdata-sections', '-ffunction-sections' ],
+        'cflags': [ '-O3', '-fomit-frame-pointer', '-fdata-sections', '-ffunction-sections', '--std=c99' ],
         'msvs_settings': {
           'VCCLCompilerTool': {
             'target_conditions': [
