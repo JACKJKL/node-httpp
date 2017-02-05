@@ -22,6 +22,8 @@ static uint64_t rdtsc()
    #else
       x = 0;
    #endif
+  
+   return x;
 }
 
 int main(int argc, char *argv[]) {
