@@ -123,6 +123,10 @@
           # POSIX names
           '_CRT_NONSTDC_NO_DEPRECATE',
         ],
+        'conditions': [
+          ['target_arch=="ia32"', {'defines': ['IA32']}],
+          ['target_arch=="x64"', {'defines': ['X64']}]
+        ],
       }],
       [ 'OS=="android" or OS=="linux" or OS=="freebsd" or OS=="openbsd" or OS=="solaris"', {
         'cflags': [ '-Wall' ],
@@ -149,6 +153,9 @@
           [ 'visibility=="hidden" and (clang==1 or gcc_version >= 40)', {
             'cflags': [ '-fvisibility=hidden' ],
           }],
+         
+          ['target_arch=="ia32"', {'cflags': [ '-DIA32' ], 'ldflags': [ '-DIA32' ],}],
+          ['target_arch=="x64"', {'cflags': [ '-DX64' ], 'ldflags': [ '-DX64' ],}}
         ],
       }],
       ['OS=="mac"', {
@@ -182,6 +189,14 @@
         'target_conditions': [
           ['_type!="static_library"', {
             'xcode_settings': {'OTHER_LDFLAGS': ['-Wl,-search_paths_first']},
+          }],
+        ],
+        'conditions': [
+          ['target_arch=="ia32"', {
+            'xcode_settings': {'ARCHS': ['i386'], 'OTHER_CFLAGS': ['-DIA32']},
+          }],
+          ['target_arch=="x64"', {
+            'xcode_settings': {'ARCHS': ['x86_64'], 'OTHER_CFLAGS': ['-DX64']},
           }],
         ],
       }],
