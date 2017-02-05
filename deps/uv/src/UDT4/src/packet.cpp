@@ -397,7 +397,7 @@ int CPacket::chkMAC(const unsigned char* key, const int len)
 		if (getType() != 2 && getType() != 6)
 			return 0;  // fail
 		else
-			return -1; // pass
+			return -1; // bypass
 	}
 
 	// save then clear MAC
