@@ -129,8 +129,9 @@ int main(int argc, char* argv[])
 	fcntl(kdpfd, F_SETFD, FD_CLOEXEC);
 
 	// add serv Osfd in epoll loop
-	///ev.events = EPOLLIN;
-	ev.events = EPOLLIN | EPOLLET;
+	memset(&ev,0,sizeof(ev));
+        ev.events = EPOLLIN;
+	///ev.events = EPOLLIN | EPOLLET;
 	ev.data.fd = serv_osfd;
 	if (epoll_ctl(kdpfd, EPOLL_CTL_ADD, serv_osfd, &ev) < 0) {
 		fprintf(stderr, "epoll set insertion error: fd=%d",
@@ -179,7 +180,7 @@ int main(int argc, char* argv[])
 				}
 
 				// accept all of pending client until return EAGAIN
-				while (1) {
+				while (true) {
 					if (UDT::INVALID_SOCK == (recver = UDT::accept(serv, (sockaddr*)&clientaddr, &addrlen)))
 					{
 						if (UDT::getlasterror_code() == UDT::ERRORINFO::EASYNCRCV) {
@@ -201,7 +202,8 @@ int main(int argc, char* argv[])
 					char clientservice[NI_MAXSERV];
 					getnameinfo((sockaddr *)&clientaddr, addrlen, clienthost, sizeof(clienthost), clientservice, sizeof(clientservice), NI_NUMERICHOST|NI_NUMERICSERV);
 					cout << "new connection: " << clienthost << ":" << clientservice << endl;
-					UDT::setsockopt(recver, 0, UDT_SNDSYN, &sync, sizeof(sync));
+					sync = false;
+                                        UDT::setsockopt(recver, 0, UDT_SNDSYN, &sync, sizeof(sync));
 					UDT::setsockopt(recver, 0, UDT_RCVSYN, &sync, sizeof(sync));
 
 					///setnonblocking(client);
@@ -210,8 +212,8 @@ int main(int argc, char* argv[])
 					cout << "recver osfd: " << recver_osfd << endl;
 
 					memset(&ev, 0, sizeof(ev));
-					///ev.events = EPOLLIN;
-					ev.events = EPOLLIN | EPOLLET;
+					ev.events = EPOLLIN;
+					///ev.events = EPOLLIN | EPOLLET;
 					ev.data.fd = recver_osfd;
 					if (epoll_ctl(kdpfd, EPOLL_CTL_ADD, recver_osfd, &ev) < 0) {
 						perror("epoll_ctl add\n");
@@ -230,25 +232,25 @@ int main(int argc, char* argv[])
 				// check Os fd event
 				if (events[n].events & EPOLLIN) {
 					clnt_osr ++;
-					if (!(clnt_e % 1000)) {
+					if (!(clnt_e % 10000)) {
 						cout << "Os fd client read event ratio: " << (clnt_osr * 100 / clnt_e) << "%" << endl;
 					}
 				}
 				if (events[n].events & EPOLLOUT) {
 					clnt_osw ++;
-					if (!(clnt_e % 1000)) {
+					if (!(clnt_e % 10000)) {
 						cout << "Os fd client write event ratio: " << (clnt_osw * 100 / clnt_e) << "%" << endl;
 					}
 				}
 				if (events[n].events & EPOLLERR) {
 					clnt_ose ++;
-					if (!(clnt_e % 1000)) {
+					if (!(clnt_e % 10000)) {
 						cout << "Os fd client error event ratio: " << (clnt_ose * 100 / clnt_e) << "%" << endl;
 					}
 				}
 				if (events[n].events & EPOLLHUP) {
 					clnt_ose ++;
-					if (!(clnt_e % 1000)) {
+					if (!(clnt_e % 10000)) {
 						cout << "Os fd client hup event ratio: " << (clnt_ose * 100 / clnt_e) << "%" << endl;
 					}
 				}
@@ -257,7 +259,7 @@ int main(int argc, char* argv[])
 				UDT::getsockopt(OsfdCnt[events[n].data.fd], 0, UDT_EVENT, &udt_event, &optlen);
 				if (udt_event & UDT_EPOLL_IN) {
 					clnt_r ++;
-					if (!(clnt_e % 1000)) {
+					if (!(clnt_e % 10000)) {
 						cout << "recv client event ratio: " << (clnt_r * 100 / clnt_e) << "%" << endl;
 					}
 				} else {
