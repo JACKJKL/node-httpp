@@ -1,8 +1,8 @@
 {
   'variables': {
     'visibility%': 'hidden',         # V8's visibility setting
-    'target_arch%': 'ia32',          # set v8's target architecture
-    'host_arch%': 'ia32',            # set v8's host architecture
+    'target_arch%': 'x64',          # set v8's target architecture
+    'host_arch%': 'x64',            # set v8's host architecture
     'library%': 'static_library',    # allow override to 'shared_library' for DLL/.so builds
     'component%': 'static_library',  # NB. these names match with what V8 expects
     'msvs_multi_core_compile': '0',  # we do enable multicore compiles, but not using the V8 way
@@ -15,7 +15,7 @@
     'configurations': {
       'Debug': {
         'defines': [ 'DEBUG', '_DEBUG' ],
-        'cflags': [ '-g', '-O0' ],
+        'cflags': [ '-g', '-O0', '--std=c99' ],
         'msvs_settings': {
           'VCCLCompilerTool': {
             'target_conditions': [
@@ -49,7 +49,7 @@
       },
       'Release': {
         'defines': [ 'NDEBUG' ],
-        'cflags': [ '-O3', '-fomit-frame-pointer', '-fdata-sections', '-ffunction-sections' ],
+        'cflags': [ '-O3', '-fomit-frame-pointer', '-fdata-sections', '-ffunction-sections', '--std=c99' ],
         'msvs_settings': {
           'VCCLCompilerTool': {
             'target_conditions': [
@@ -123,15 +123,23 @@
           # POSIX names
           '_CRT_NONSTDC_NO_DEPRECATE',
         ],
+        'conditions': [
+          ['target_arch=="ia32"', {'defines': ['IA32']}],
+          ['target_arch=="x64"', {'defines': ['X64']}]
+        ],
       }],
       [ 'OS=="android" or OS=="linux" or OS=="freebsd" or OS=="openbsd" or OS=="solaris"', {
         'cflags': [ '-Wall' ],
         'cflags_cc': [ '-frtti', '-fexceptions', '-DEVPIPE_OSFD' ],
         'conditions': [
-          [ 'host_arch != target_arch and target_arch=="ia32"', {
+          [ 'target_arch=="ia32"', {
             'cflags': [ '-m32' ],
             'ldflags': [ '-m32' ],
           }],
+          [ 'target_arch=="x64"', {
+            'cflags': [ '-m64' ],
+            'ldflags': [ '-m64' ],
+          }], 
           [ 'OS=="linux"', {
             'cflags': [ '-ansi', '-DLINUX' ],
           }],
@@ -149,6 +157,9 @@
           [ 'visibility=="hidden" and (clang==1 or gcc_version >= 40)', {
             'cflags': [ '-fvisibility=hidden' ],
           }],
+         
+          ['target_arch=="ia32"', {'cflags': [ '-DIA32' ], 'ldflags': [ '-DIA32' ],}],
+          ['target_arch=="x64"', {'cflags': [ '-DX64' ], 'ldflags': [ '-DX64' ],}]
         ],
       }],
       ['OS=="mac"', {
@@ -182,6 +193,14 @@
         'target_conditions': [
           ['_type!="static_library"', {
             'xcode_settings': {'OTHER_LDFLAGS': ['-Wl,-search_paths_first']},
+          }],
+        ],
+        'conditions': [
+          ['target_arch=="ia32"', {
+            'xcode_settings': {'ARCHS': ['i386'], 'OTHER_CFLAGS': ['-DIA32']},
+          }],
+          ['target_arch=="x64"', {
+            'xcode_settings': {'ARCHS': ['x86_64'], 'OTHER_CFLAGS': ['-DX64']},
           }],
         ],
       }],

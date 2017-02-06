@@ -114,7 +114,7 @@ void CTimer::rdtsc(uint64_t &x)
       asm ("mov %0=ar.itc" : "=r"(x) :: "memory");
    #elif defined(AMD64) || defined(amd64) || defined(X64) || defined(x64) || defined(x86_64)
       uint32_t lval, hval;
-      asm ("rdtsc" : "=a" (lval), "=d" (hval));
+      asm volatile ("rdtsc" : "=a" (lval), "=d" (hval));
       x = hval;
       x = (x << 32) | lval;
    #elif defined(WIN32)
