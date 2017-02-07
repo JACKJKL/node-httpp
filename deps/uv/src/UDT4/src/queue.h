@@ -180,6 +180,8 @@ public:
       //    1 if successfully retrieved, -1 if no packet found.
 
    int pop(sockaddr*& addr, CPacket& pkt);
+   int pop_th(CUDT*& u);
+   int pop_bh(CUDT* u, uint64_t ts, sockaddr*& addr, CPacket& pkt);
 
       // Functionality:
       //    Remove UDT instance from the list.
@@ -365,10 +367,17 @@ private:
    pthread_mutex_t m_RIDVectorLock;
 };
 
+
 class CSndQueue
 {
 friend class CUDT;
 friend class CUDTUnited;
+
+struct CSndQueuePair_t {
+   int         id;
+   pthread_t   worker;
+   CSndQueue * queue;
+};
 
 public:
    CSndQueue();
@@ -403,18 +412,25 @@ private:
    static DWORD WINAPI worker(LPVOID param);
 #endif
 
-   pthread_t m_WorkerThread;
+#ifdef UDT_SEND_THREADS
+   pthread_t       m_WorkerThreads[UDT_SEND_THREADS];  // worker  thread pool
+   pthread_cond_t  m_ExitConds;                        // for windows thread closure
+   CSndQueuePair_t m_WorkerCtx[UDT_SEND_THREADS];      // worker params
+   pthread_mutex_t m_SyncLock;                         // threads sync lock
+#else
+   pthread_t      m_WorkerThread;
+   pthread_cond_t m_ExitCond;
+#endif
 
 private:
    CSndUList* m_pSndUList;		// List of UDT instances for data sending
-   CChannel* m_pChannel;                // The UDP channel for data sending
+   CChannel* m_pChannel;        // The UDP channel for data sending
    CTimer* m_pTimer;			// Timing facility
 
    pthread_mutex_t m_WindowLock;
    pthread_cond_t m_WindowCond;
 
-   volatile bool m_bClosing;		// closing the worker
-   pthread_cond_t m_ExitCond;
+   volatile bool m_bClosing;    // closing the worker
 
 private:
    CSndQueue(const CSndQueue&);

@@ -336,6 +336,30 @@ int CSndUList::pop(sockaddr*& addr, CPacket& pkt)
    return 1;
 }
 
+int CSndUList::pop_th(CUDT*& u)
+{
+   CGuard listguard(m_ListLock);
+   if (-1 == m_iLastEntry)
+      return -1;
+   u = m_pHeap[0]->m_pUDT;
+   remove_(u);
+   return 1;
+}
+int CSndUList::pop_bh(CUDT* u, uint64_t myts, sockaddr*& addr, CPacket& pkt)
+{
+   if (!u->m_bConnected || u->m_bBroken)
+      return -1;
+   uint64_t ts;
+   CTimer::rdtsc(ts);
+   if (ts < myts)
+      return -1;
+   if (u->packData(pkt, ts) <= 0)
+      return -1;
+   addr = u->m_pPeerAddr;
+   if (ts > 0)
+      insert_(ts, u);
+   return 1;
+}
 void CSndUList::remove(const CUDT* u)
 {
    CGuard listguard(m_ListLock);
@@ -444,48 +468,99 @@ void CSndUList::remove_(const CUDT* u)
 
 //
 CSndQueue::CSndQueue():
-m_WorkerThread(),
 m_pSndUList(NULL),
 m_pChannel(NULL),
 m_pTimer(NULL),
 m_WindowLock(),
 m_WindowCond(),
-m_bClosing(false),
-m_ExitCond()
+m_bClosing(false)
 {
+#ifdef UDT_SEND_THREADS
    #ifndef WIN32
+      pthread_mutex_init(&m_SyncLock, NULL);
+   #else
+      m_SyncLock = CreateMutex(NULL, false, NULL);
+   #endif
+#endif
+
+#ifndef WIN32
       pthread_cond_init(&m_WindowCond, NULL);
       pthread_mutex_init(&m_WindowLock, NULL);
-   #else
+#else
       m_WindowLock = CreateMutex(NULL, false, NULL);
       m_WindowCond = CreateEvent(NULL, false, false, NULL);
+
+  #ifdef UDT_SEND_THREADS
+      for (int id = 0; id < UDT_SEND_THREADS; id ++) {
+    	  m_ExitConds[id] = CreateEvent(NULL, false, false, NULL);
+      }
+  #else
       m_ExitCond = CreateEvent(NULL, false, false, NULL);
-   #endif
+  #endif
+
+#endif
 }
 
 CSndQueue::~CSndQueue()
 {
    m_bClosing = true;
 
-   #ifndef WIN32
+#ifndef WIN32
       pthread_mutex_lock(&m_WindowLock);
       pthread_cond_signal(&m_WindowCond);
       pthread_mutex_unlock(&m_WindowLock);
+
+  #ifdef UDT_SEND_THREADS
+      for (int id = 0; id < UDT_SEND_THREADS; id ++) {
+    	  if (0 != m_WorkerThreads[id])
+    		  pthread_join(m_WorkerThreads[id], NULL);
+      }
+  #else
       if (0 != m_WorkerThread)
-         pthread_join(m_WorkerThread, NULL);
+    	  pthread_join(m_WorkerThread, NULL);
+  #endif
+
       pthread_cond_destroy(&m_WindowCond);
       pthread_mutex_destroy(&m_WindowLock);
-   #else
+#else
       SetEvent(m_WindowCond);
-      if (NULL != m_WorkerThread)
-         WaitForSingleObject(m_ExitCond, INFINITE);
-      CloseHandle(m_WorkerThread);
+
+  #ifdef UDT_SEND_THREADS
+      for (int id = 0; id < UDT_SEND_THREADS; id ++) {
+    	  if (NULL != m_WorkerThreads[id]) {
+    		  WaitForSingleObject(m_ExitConds[id], INFINITE);
+    		  CloseHandle(m_WorkerThreads[id]);
+    	  }
+      }
+  #else
+      if (NULL != m_WorkerThread) {
+    	  WaitForSingleObject(m_ExitCond, INFINITE);
+    	  CloseHandle(m_WorkerThread);
+      }
+  #endif
+
       CloseHandle(m_WindowLock);
       CloseHandle(m_WindowCond);
+
+  #ifdef UDT_SEND_THREADS
+      for (int id = 0; id < UDT_SEND_THREADS; id ++) {
+    	  CloseHandle(m_ExitConds[id]);
+      }
+  #else
       CloseHandle(m_ExitCond);
-   #endif
+  #endif
+
+#endif
 
    delete m_pSndUList;
+
+#ifdef UDT_SEND_THREADS
+   #ifndef WIN32
+      pthread_mutex_destroy(&m_SyncLock);
+   #else
+      CloseHandle(m_SyncLock);
+   #endif
+#endif
 }
 
 void CSndQueue::init(CChannel* c, CTimer* t)
@@ -497,20 +572,49 @@ void CSndQueue::init(CChannel* c, CTimer* t)
    m_pSndUList->m_pWindowCond = &m_WindowCond;
    m_pSndUList->m_pTimer = m_pTimer;
 
-   #ifndef WIN32
-      if (0 != pthread_create(&m_WorkerThread, NULL, CSndQueue::worker, this))
-      {
-         m_WorkerThread = 0;
-         throw CUDTException(3, 1);
-      }
-   #else
-      DWORD threadID;
-      m_WorkerThread = CreateThread(NULL, 0, CSndQueue::worker, this, 0, &threadID);
-      if (NULL == m_WorkerThread)
-    	throw CUDTException(3, 1);
-      // adjust thread priority
-      ///assert(SetThreadPriority(m_WorkerThread, THREAD_PRIORITY_BELOW_NORMAL/*THREAD_PRIORITY_ABOVE_NORMAL*/));
-   #endif
+#ifdef UDT_SEND_THREADS
+
+   for (int id = 0; id < UDT_SEND_THREADS; id ++) {
+	   m_WorkerCtx[id].id    = id;
+	   m_WorkerCtx[id].queue = this;
+
+  #ifndef WIN32
+	   if (0 != pthread_create(&m_WorkerThreads[id], NULL, CSndQueue::worker, &m_WorkerCtx[id]))
+	   {
+		   m_WorkerThreads[id] = 0;
+		   throw CUDTException(3, 1);
+	   }
+  #else
+	   DWORD threadID;
+	   m_WorkerThreads[id] = CreateThread(NULL, 0, CSndQueue::worker, &m_WorkerCtx[id], 0, &threadID);
+	   if (NULL == m_WorkerThreads[id])
+		   throw CUDTException(3, 1);
+
+	   // adjust thread priority
+	   ///assert(SetThreadPriority(m_WorkerThread, THREAD_PRIORITY_BELOW_NORMAL/*THREAD_PRIORITY_ABOVE_NORMAL*/));
+  #endif
+
+	   m_WorkerCtx[id].worker = m_WorkerThreads[id];
+   }
+
+#else
+
+  #ifndef WIN32
+   if (0 != pthread_create(&m_WorkerThread, NULL, CSndQueue::worker, this))
+   {
+      m_WorkerThread = 0;
+      throw CUDTException(3, 1);
+   }
+  #else
+   DWORD threadID;
+   m_WorkerThread = CreateThread(NULL, 0, CSndQueue::worker, this, 0, &threadID);
+   if (NULL == m_WorkerThread)
+ 	throw CUDTException(3, 1);
+   // adjust thread priority
+   ///assert(SetThreadPriority(m_WorkerThread, THREAD_PRIORITY_BELOW_NORMAL/*THREAD_PRIORITY_ABOVE_NORMAL*/));
+  #endif
+
+#endif
 }
 
 #ifndef WIN32
@@ -519,14 +623,44 @@ void CSndQueue::init(CChannel* c, CTimer* t)
    DWORD WINAPI CSndQueue::worker(LPVOID param)
 #endif
 {
-   CSndQueue* self = (CSndQueue*)param;
+#ifdef UDT_SEND_THREADS
+   CSndQueuePair_t* ctx  = (CSndQueuePair_t*)param;
+   CSndQueue*       self = ctx->queue;
+   int              wid  = ctx->id;
+#else
+   CSndQueue*       self = (CSndQueue*)param;
+#endif
 
    while (!self->m_bClosing)
    {
+#ifdef UDT_SEND_THREADS
+      pthread_mutex_lock(&self->m_SyncLock);
+#endif
       uint64_t ts = self->m_pSndUList->getNextProcTime();
 
       if (ts > 0)
       {
+#ifdef UDT_SEND_THREADS
+    	 CUDT* u;
+         if (self->m_pSndUList->pop_th(u) < 0) {
+         	 pthread_mutex_unlock(&self->m_SyncLock);
+             continue;
+    	 }
+     	 pthread_mutex_unlock(&self->m_SyncLock);
+
+         // wait until next processing time of the first socket on the list
+         uint64_t currtime;
+         CTimer::rdtsc(currtime);
+         if (currtime < ts)
+            self->m_pTimer->sleepto(ts);
+
+         // it is time to send the next pkt
+         sockaddr* addr;
+         CPacket pkt;
+         if (self->m_pSndUList->pop_bh(u, ts, addr, pkt) < 0)
+            continue;
+         self->m_pChannel->sendto(addr, pkt);
+#else
          // wait until next processing time of the first socket on the list
          uint64_t currtime;
          CTimer::rdtsc(currtime);
@@ -540,6 +674,7 @@ void CSndQueue::init(CChannel* c, CTimer* t)
             continue;
 
          self->m_pChannel->sendto(addr, pkt);
+#endif
       }
       else
       {
@@ -552,15 +687,25 @@ void CSndQueue::init(CChannel* c, CTimer* t)
          #else
             WaitForSingleObject(self->m_WindowCond, INFINITE);
          #endif
+
+#ifdef UDT_SEND_THREADS
+            pthread_mutex_unlock(&self->m_SyncLock);
+#endif
       }
    }
 
-   #ifndef WIN32
-      return NULL;
-   #else
-      SetEvent(self->m_ExitCond);
-      return 0;
-   #endif
+#ifndef WIN32
+   return NULL;
+#else
+
+  #ifdef UDT_SEND_THREADS
+   SetEvent(self->m_ExitConds[wid]);
+  #else
+   SetEvent(self->m_ExitCond);
+  #endif
+
+   return 0;
+#endif
 }
 
 int CSndQueue::sendto(const sockaddr* addr, CPacket& packet)
@@ -1126,12 +1271,11 @@ void CRcvQueue::init(int qsize, int payload, int version, int hsize, CChannel* c
             	///////////////////////////////////////////////////////////////////
             }
          }
-         else if (NULL != (u = self->m_pRendezvousQueue->retrieve(addr, id)))
-         {
-            if (!u->m_bSynRecving)
-               u->connect(unit->m_Packet);
-            else
-               self->storePkt(id, unit->m_Packet.clone());
+         else if (NULL != (u = self->m_pRendezvousQueue->retrieve(addr, id))) {
+        	 if (!u->m_bSynRecving)
+        		 u->connect(unit->m_Packet);
+        	 else
+        		 self->storePkt(id, unit->m_Packet.clone());
          }
       }
 
