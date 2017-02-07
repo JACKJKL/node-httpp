@@ -109,7 +109,7 @@ int main(int argc, char* argv[])
       CreateThread(NULL, 0, monitor, &client, 0, NULL);
    #endif
 
-   for (int i = 0; i < 60000; i ++)
+   for (int i = 0; i < 10000; i ++)
    {
       int ssize = 0;
       int ss;
@@ -147,6 +147,8 @@ int main(int argc, char* argv[])
 
    UDT::close(client);
    delete [] data;
+   cout << "client closed" << endl;
+   
    return 0;
 }
 

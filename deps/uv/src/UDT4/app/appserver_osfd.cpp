@@ -296,6 +296,7 @@ int main(int argc, char* argv[])
 	}
 #endif
 	UDT::close(serv);
+        cout << "server closed" << endl;
 
 	return 0;
 }
