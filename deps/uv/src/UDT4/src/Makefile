@@ -8,7 +8,8 @@ ifndef arch
    arch = IA32
 endif
 
-CCFLAGS = -DUDT_SEND_THREADS=4 -fPIC -Wall -Wextra -D$(os) -finline-functions -O3 -fno-strict-aliasing -fvisibility=hidden -DEVPIPE_OSFD
+###CCFLAGS = -DUDT_SEND_THREADS=2 -fPIC -Wall -Wextra -D$(os) -finline-functions -O3 -fno-strict-aliasing -fvisibility=hidden -DEVPIPE_OSFD
+CCFLAGS = -fPIC -Wall -Wextra -D$(os) -finline-functions -O3 -fno-strict-aliasing -fvisibility=hidden -DEVPIPE_OSFD
 
 ifeq ($(arch), IA32)
    CCFLAGS += -DIA32

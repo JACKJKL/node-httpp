@@ -339,25 +339,35 @@ int CSndUList::pop(sockaddr*& addr, CPacket& pkt)
 int CSndUList::pop_th(CUDT*& u)
 {
    CGuard listguard(m_ListLock);
+
    if (-1 == m_iLastEntry)
       return -1;
+
    u = m_pHeap[0]->m_pUDT;
+
    remove_(u);
+
    return 1;
 }
 int CSndUList::pop_bh(CUDT* u, uint64_t myts, sockaddr*& addr, CPacket& pkt)
 {
    if (!u->m_bConnected || u->m_bBroken)
       return -1;
+
    uint64_t ts;
    CTimer::rdtsc(ts);
    if (ts < myts)
       return -1;
+
    if (u->packData(pkt, ts) <= 0)
       return -1;
+
    addr = u->m_pPeerAddr;
+
+   // insert a new entry, ts is the next processing time
    if (ts > 0)
       insert_(ts, u);
+
    return 1;
 }
 void CSndUList::remove(const CUDT* u)
@@ -476,11 +486,7 @@ m_WindowCond(),
 m_bClosing(false)
 {
 #ifdef UDT_SEND_THREADS
-   #ifndef WIN32
-      pthread_mutex_init(&m_SyncLock, NULL);
-   #else
-      m_SyncLock = CreateMutex(NULL, false, NULL);
-   #endif
+      CGuard::createMutex(m_SyncLock);
 #endif
 
 #ifndef WIN32
@@ -503,7 +509,11 @@ m_bClosing(false)
 
 CSndQueue::~CSndQueue()
 {
-   m_bClosing = true;
+#ifdef UDT_SEND_THREADS
+	CGuard::enterCS(m_SyncLock);
+#endif
+
+	m_bClosing = true;
 
 #ifndef WIN32
       pthread_mutex_lock(&m_WindowLock);
@@ -555,11 +565,11 @@ CSndQueue::~CSndQueue()
    delete m_pSndUList;
 
 #ifdef UDT_SEND_THREADS
-   #ifndef WIN32
-      pthread_mutex_destroy(&m_SyncLock);
-   #else
-      CloseHandle(m_SyncLock);
-   #endif
+	CGuard::leaveCS(m_SyncLock);
+#endif
+
+#ifdef UDT_SEND_THREADS
+	CGuard::releaseMutex(m_SyncLock);
 #endif
 }
 
@@ -631,11 +641,13 @@ void CSndQueue::init(CChannel* c, CTimer* t)
    CSndQueue*       self = (CSndQueue*)param;
 #endif
 
-   while (!self->m_bClosing)
+   while (true)
    {
 #ifdef UDT_SEND_THREADS
-      pthread_mutex_lock(&self->m_SyncLock);
+		CGuard::enterCS(self->m_SyncLock);
 #endif
+      if (self->m_bClosing) break;
+
       uint64_t ts = self->m_pSndUList->getNextProcTime();
 
       if (ts > 0)
@@ -643,10 +655,10 @@ void CSndQueue::init(CChannel* c, CTimer* t)
 #ifdef UDT_SEND_THREADS
     	 CUDT* u;
          if (self->m_pSndUList->pop_th(u) < 0) {
-         	 pthread_mutex_unlock(&self->m_SyncLock);
+     	     CGuard::leaveCS(self->m_SyncLock);
              continue;
     	 }
-     	 pthread_mutex_unlock(&self->m_SyncLock);
+  		 CGuard::leaveCS(self->m_SyncLock);
 
          // wait until next processing time of the first socket on the list
          uint64_t currtime;
@@ -659,6 +671,7 @@ void CSndQueue::init(CChannel* c, CTimer* t)
          CPacket pkt;
          if (self->m_pSndUList->pop_bh(u, ts, addr, pkt) < 0)
             continue;
+
          self->m_pChannel->sendto(addr, pkt);
 #else
          // wait until next processing time of the first socket on the list
@@ -689,7 +702,7 @@ void CSndQueue::init(CChannel* c, CTimer* t)
          #endif
 
 #ifdef UDT_SEND_THREADS
-            pthread_mutex_unlock(&self->m_SyncLock);
+  	     CGuard::leaveCS(self->m_SyncLock);
 #endif
       }
    }
