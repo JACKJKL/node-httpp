@@ -622,7 +622,7 @@ int udt__socket(int domain, int type, int protocol) {
     // - ??? or            from 25600 to 5120, UDT/UDP buffer from 10M/1M to 2M/200K
     // TBD...
     optval = 5120;
-    if (udt_setsockopt(sockfd, 0, (int)UDT_UDT_FC, (void *)&optval, sizeof(optval))) {
+    /*if (udt_setsockopt(sockfd, 0, (int)UDT_UDT_FC, (void *)&optval, sizeof(optval))) {
         udt_close(sockfd);
         sockfd = -1;
     }
@@ -637,7 +637,7 @@ int udt__socket(int domain, int type, int protocol) {
     	udt_setsockopt(sockfd, 0, (int)UDT_UDT_RCVBUF, (void *)&optval, sizeof(optval))) {
         udt_close(sockfd);
         sockfd = -1;
-    }
+    }*/
     ////////////////////////////////////////////////////////////////////////////////////////
 
     if (udt__nonblock(sockfd, 1)) {

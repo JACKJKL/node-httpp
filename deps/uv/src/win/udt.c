@@ -319,7 +319,7 @@ static int uv__bind(uv_udt_t* handle,
     // - set maxWindowSize from 25600 to 2560, UDT/UDP buffer from 10M/1M to 1M/100K
     // - ??? or            from 25600 to 5120, UDT/UDP buffer from 10M/1M to 2M/200K
     optval = 5120;
-    if (udt_setsockopt(handle->udtfd, 0, (int)UDT_UDT_FC, (void *)&optval, sizeof(optval))) {
+    /*if (udt_setsockopt(handle->udtfd, 0, (int)UDT_UDT_FC, (void *)&optval, sizeof(optval))) {
        closesocket(sock);
        udt_close(handle->udtfd);
        return -1;
@@ -337,7 +337,7 @@ static int uv__bind(uv_udt_t* handle,
        closesocket(sock);
        udt_close(handle->udtfd);
        return -1;
-    }
+    }*/
     ///////////////////////////////////////////////////////////////////////////////////////////////
   }
 
@@ -425,7 +425,7 @@ static int uv__bindfd(
     // - set maxWindowSize from 25600 to 2560, UDT/UDP buffer from 10M/1M to 1M/100K
     // - ??? or            from 25600 to 5120, UDT/UDP buffer from 10M/1M to 2M/200K
     optval = 5120;
-    if (udt_setsockopt(handle->udtfd, 0, (int)UDT_UDT_FC, (void *)&optval, sizeof(optval))) {
+    /*if (udt_setsockopt(handle->udtfd, 0, (int)UDT_UDT_FC, (void *)&optval, sizeof(optval))) {
        closesocket(sock);
        udt_close(handle->udtfd);
        return -1;
@@ -443,7 +443,7 @@ static int uv__bindfd(
        closesocket(sock);
        udt_close(handle->udtfd);
        return -1;
-    }
+    }*/
     ///////////////////////////////////////////////////////////////////////////////////////////////
   }
 
