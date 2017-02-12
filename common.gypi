@@ -154,6 +154,10 @@
           'BUILDING_V8_SHARED=1',
           'BUILDING_UV_SHARED=1',
         ],
+        'conditions': [
+          ['target_arch=="ia32"', {'defines': ['IA32']}],
+          ['target_arch=="x64"', {'defines': ['X64']}]
+        ],
       }, {
         'defines': [
           '_LARGEFILE_SOURCE',
@@ -170,12 +174,12 @@
         'ldflags': [ '-rdynamic' ],
         'conditions': [
           [ 'target_arch=="ia32"', {
-            'cflags': [ '-m32' ],
-            'ldflags': [ '-m32' ],
+            'cflags': [ '-m32', '-DIA32' ],
+            'ldflags': [ '-m32', '-DIA32' ],
           }],
           [ 'target_arch=="x64"', {
-            'cflags': [ '-m64' ],
-            'ldflags': [ '-m64' ],
+            'cflags': [ '-m64', '-DX64' ],
+            'ldflags': [ '-m64', '-DX64' ],
           }],
           [ 'OS=="solaris"', {
             'cflags': [ '-pthreads' ],
@@ -221,10 +225,10 @@
         ],
         'conditions': [
           ['target_arch=="ia32"', {
-            'xcode_settings': {'ARCHS': ['i386']},
+            'xcode_settings': {'ARCHS': ['i386'], 'OTHER_CFLAGS': ['-DIA32']},
           }],
           ['target_arch=="x64"', {
-            'xcode_settings': {'ARCHS': ['x86_64']},
+            'xcode_settings': {'ARCHS': ['x86_64'], 'OTHER_CFLAGS': ['-DX64']},
           }],
         ],
       }],

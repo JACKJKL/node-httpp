@@ -102,7 +102,7 @@ void CTimer::rdtsc(uint64_t &x)
       return;
    }
 
-   #ifdef IA32
+   #if defined(IA32) || defined(ia32)
       uint32_t lval, hval;
       //asm volatile ("push %eax; push %ebx; push %ecx; push %edx");
       //asm volatile ("xor %eax, %eax; cpuid");
@@ -110,11 +110,11 @@ void CTimer::rdtsc(uint64_t &x)
       //asm volatile ("pop %edx; pop %ecx; pop %ebx; pop %eax");
       x = hval;
       x = (x << 32) | lval;
-   #elif defined(IA64)
+   #elif defined(IA64) || defined(ia64)
       asm ("mov %0=ar.itc" : "=r"(x) :: "memory");
-   #elif defined(AMD64)
+   #elif defined(AMD64) || defined(amd64) || defined(X64) || defined(x64) || defined(x86_64)
       uint32_t lval, hval;
-      asm ("rdtsc" : "=a" (lval), "=d" (hval));
+      asm volatile ("rdtsc" : "=a" (lval), "=d" (hval));
       x = hval;
       x = (x << 32) | lval;
    #elif defined(WIN32)
@@ -136,7 +136,8 @@ uint64_t CTimer::readCPUFrequency()
 {
    uint64_t frequency = 1;  // 1 tick per microsecond.
 
-   #if defined(IA32) || defined(IA64) || defined(AMD64)
+   #if defined(IA32) || defined(IA64) || defined(AMD64) || defined(X64) || defined(x86_64) ||\
+       defined(ia32) || defined(ia64) || defined(amd64) || defined(x64)
       uint64_t t1, t2;
 
       rdtsc(t1);
@@ -243,11 +244,11 @@ void CTimer::sleepto(uint64_t nexttime)
    while (t < m_ullSchedTime)
    {
       #ifndef NO_BUSY_WAITING
-         #ifdef IA32
+         #if   defined(IA32)  || defined(ia32)
             __asm__ volatile ("pause; rep; nop; nop; nop; nop; nop;");
-         #elif IA64
+         #elif defined(IA64)  || defined(ia64)
             __asm__ volatile ("nop 0; nop 0; nop 0; nop 0; nop 0;");
-         #elif AMD64
+         #elif defined(AMD64) || defined(amd64) || defined(X64) || defined(x64) || defined(x86_64)
             __asm__ volatile ("nop; nop; nop; nop; nop;");
          #endif
       #else
